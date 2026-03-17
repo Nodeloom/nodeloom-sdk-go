@@ -27,11 +27,12 @@ import (
 // Client is the main entry point for sending telemetry to NodeLoom. It manages
 // event queueing, batching, and transport. A Client is safe for concurrent use.
 type Client struct {
-	mu     sync.RWMutex
-	config Config
-	queue  *queue
-	proc   *batchProcessor
-	closed bool
+	mu        sync.RWMutex
+	config    Config
+	queue     *queue
+	proc      *batchProcessor
+	apiClient *ApiClient
+	closed    bool
 }
 
 // New creates a new NodeLoom client with the given API key and options.
@@ -142,6 +143,17 @@ func (c *Client) Close() {
 	c.mu.Unlock()
 
 	c.proc.stop(c.config.ShutdownWait)
+}
+
+// Api returns the REST API client for making authenticated requests
+// to all NodeLoom API endpoints.
+func (c *Client) Api() *ApiClient {
+	c.mu.Lock()
+	defer c.mu.Unlock()
+	if c.apiClient == nil {
+		c.apiClient = newApiClient(c.config.APIKey, c.config.Endpoint)
+	}
+	return c.apiClient
 }
 
 // enqueue adds a telemetry event to the internal queue. If the client is
