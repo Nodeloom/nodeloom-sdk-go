@@ -225,6 +225,17 @@ func (a *ApiClient) TriggerEvaluation(body map[string]any) ([]byte, error) {
 
 // ── Metrics ─────────────────────────────────────────────────
 
+// SetCallbackUrl registers a callback URL for red team testing of an SDK agent.
+func (a *ApiClient) SetCallbackUrl(agentName string, callbackUrl string) ([]byte, error) {
+	return a.Request("POST", "/api/sdk/v1/agents/"+url.QueryEscape(agentName)+"/callback",
+		map[string]any{"callback_url": callbackUrl})
+}
+
+// RemoveCallbackUrl removes the callback URL for an SDK agent.
+func (a *ApiClient) RemoveCallbackUrl(agentName string) ([]byte, error) {
+	return a.Request("DELETE", "/api/sdk/v1/agents/"+url.QueryEscape(agentName)+"/callback", nil)
+}
+
 // GetMetrics gets custom metrics aggregation.
 func (a *ApiClient) GetMetrics(params string) ([]byte, error) {
 	path := "/api/sdk/v1/metrics"
