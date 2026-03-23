@@ -20,10 +20,12 @@ type Span struct {
 	output       map[string]any
 	metadata     map[string]any
 	errorMsg     string
-	tokenUsage   *TokenUsage
-	startTime    time.Time
-	endTime      time.Time
-	ended        bool
+	tokenUsage      *TokenUsage
+	promptTemplate  string
+	promptVersion   int
+	startTime       time.Time
+	endTime         time.Time
+	ended           bool
 
 	enqueue func(*TelemetryEvent)
 }
@@ -69,6 +71,28 @@ func (s *Span) SetMetadata(metadata map[string]any) {
 	s.metadata = metadata
 }
 
+// SetPrompt records which prompt template and version was used.
+func (s *Span) SetPrompt(template string, version int) {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	s.promptTemplate = template
+	s.promptVersion = version
+}
+
+// Metric emits a custom metric tied to this span's trace.
+func (s *Span) Metric(name string, value float64, unit string, tags map[string]string) {
+	event := &TelemetryEvent{
+		Type:        EventTypeMetric,
+		TraceID:     s.traceID,
+		MetricName:  name,
+		MetricValue: value,
+		MetricUnit:  unit,
+		MetricTags:  tags,
+		Timestamp:   time.Now().UTC().Format(time.RFC3339Nano),
+	}
+	s.enqueue(event)
+}
+
 // End marks this span as complete and enqueues the span event for sending.
 // If no status has been set, it defaults to StatusSuccess. Calling End more
 // than once has no effect.
@@ -87,19 +111,21 @@ func (s *Span) End() {
 	}
 
 	event := &TelemetryEvent{
-		Type:         EventTypeSpan,
-		TraceID:      s.traceID,
-		SpanID:       s.spanID,
-		ParentSpanID: s.parentSpanID,
-		Name:         s.name,
-		SpanType:     s.spanType,
-		SpanStatus:   s.status,
-		SpanInput:    s.input,
-		SpanOutput:   s.output,
-		SpanError:    s.errorMsg,
-		TokenUsage:   s.tokenUsage,
-		Timestamp:    s.startTime.Format(time.RFC3339Nano),
-		EndTimestamp:  s.endTime.Format(time.RFC3339Nano),
+		Type:           EventTypeSpan,
+		TraceID:        s.traceID,
+		SpanID:         s.spanID,
+		ParentSpanID:   s.parentSpanID,
+		Name:           s.name,
+		SpanType:       s.spanType,
+		SpanStatus:     s.status,
+		SpanInput:      s.input,
+		SpanOutput:     s.output,
+		SpanError:      s.errorMsg,
+		TokenUsage:     s.tokenUsage,
+		PromptTemplate: s.promptTemplate,
+		PromptVersion:  s.promptVersion,
+		Timestamp:      s.startTime.Format(time.RFC3339Nano),
+		EndTimestamp:    s.endTime.Format(time.RFC3339Nano),
 	}
 
 	s.enqueue(event)
@@ -120,19 +146,21 @@ func (s *Span) EndWithError(err error) {
 	s.endTime = time.Now().UTC()
 
 	event := &TelemetryEvent{
-		Type:         EventTypeSpan,
-		TraceID:      s.traceID,
-		SpanID:       s.spanID,
-		ParentSpanID: s.parentSpanID,
-		Name:         s.name,
-		SpanType:     s.spanType,
-		SpanStatus:   s.status,
-		SpanInput:    s.input,
-		SpanOutput:   s.output,
-		SpanError:    s.errorMsg,
-		TokenUsage:   s.tokenUsage,
-		Timestamp:    s.startTime.Format(time.RFC3339Nano),
-		EndTimestamp:  s.endTime.Format(time.RFC3339Nano),
+		Type:           EventTypeSpan,
+		TraceID:        s.traceID,
+		SpanID:         s.spanID,
+		ParentSpanID:   s.parentSpanID,
+		Name:           s.name,
+		SpanType:       s.spanType,
+		SpanStatus:     s.status,
+		SpanInput:      s.input,
+		SpanOutput:     s.output,
+		SpanError:      s.errorMsg,
+		TokenUsage:     s.tokenUsage,
+		PromptTemplate: s.promptTemplate,
+		PromptVersion:  s.promptVersion,
+		Timestamp:      s.startTime.Format(time.RFC3339Nano),
+		EndTimestamp:    s.endTime.Format(time.RFC3339Nano),
 	}
 
 	s.enqueue(event)

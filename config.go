@@ -4,7 +4,7 @@ import "time"
 
 const (
 	// SDKVersion is the version of this SDK.
-	SDKVersion = "0.2.0"
+	SDKVersion = "0.3.0"
 
 	// SDKLanguage identifies the language of this SDK in telemetry payloads.
 	SDKLanguage = "go"
@@ -102,8 +102,9 @@ func WithAgentVersion(version string) Option {
 type TraceOption func(*traceConfig)
 
 type traceConfig struct {
-	input    map[string]any
-	metadata map[string]any
+	input     map[string]any
+	metadata  map[string]any
+	sessionID string
 }
 
 // WithInput attaches input data to a trace or span.
@@ -117,6 +118,13 @@ func WithInput(input map[string]any) TraceOption {
 func WithMetadata(metadata map[string]any) TraceOption {
 	return func(tc *traceConfig) {
 		tc.metadata = metadata
+	}
+}
+
+// WithSessionID links this trace to a conversation session.
+func WithSessionID(sessionID string) TraceOption {
+	return func(tc *traceConfig) {
+		tc.sessionID = sessionID
 	}
 }
 

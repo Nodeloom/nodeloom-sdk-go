@@ -85,6 +85,10 @@ func (c *Client) Trace(agentName string, opts ...TraceOption) *Trace {
 		genID:        generateUUID,
 	}
 
+	if cfg.sessionID != "" {
+		t.sessionID = cfg.sessionID
+	}
+
 	// Enqueue trace_start event immediately.
 	event := &TelemetryEvent{
 		Type:         EventTypeTraceStart,
@@ -92,6 +96,7 @@ func (c *Client) Trace(agentName string, opts ...TraceOption) *Trace {
 		AgentName:    agentName,
 		AgentVersion: c.config.AgentVersion,
 		Environment:  c.config.Environment,
+		SessionID:    cfg.sessionID,
 		Input:        cfg.input,
 		Metadata:     cfg.metadata,
 		Timestamp:    t.startTime.Format(time.RFC3339Nano),
@@ -99,6 +104,31 @@ func (c *Client) Trace(agentName string, opts ...TraceOption) *Trace {
 	c.enqueue(event)
 
 	return t
+}
+
+// Metric records a custom metric event.
+func (c *Client) Metric(name string, value float64, unit string, tags map[string]string) {
+	event := &TelemetryEvent{
+		Type:        EventTypeMetric,
+		MetricName:  name,
+		MetricValue: value,
+		MetricUnit:  unit,
+		MetricTags:  tags,
+		Timestamp:   time.Now().UTC().Format(time.RFC3339Nano),
+	}
+	c.enqueue(event)
+}
+
+// Feedback records a feedback event for a trace.
+func (c *Client) Feedback(traceID string, rating int, comment string) {
+	event := &TelemetryEvent{
+		Type:            EventTypeFeedback,
+		TraceID:         traceID,
+		FeedbackRating:  rating,
+		FeedbackComment: comment,
+		Timestamp:       time.Now().UTC().Format(time.RFC3339Nano),
+	}
+	c.enqueue(event)
 }
 
 // Event records a standalone event that is not associated with any trace.

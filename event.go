@@ -10,6 +10,8 @@ const (
 	EventTypeTraceEnd   EventType = "trace_end"
 	EventTypeSpan       EventType = "span"
 	EventTypeEvent      EventType = "event"
+	EventTypeMetric     EventType = "metric"
+	EventTypeFeedback   EventType = "feedback"
 )
 
 // EventLevel indicates the severity of a standalone event.
@@ -57,6 +59,23 @@ type TelemetryEvent struct {
 	EventName  string         `json:"event_name,omitempty"`
 	Level      EventLevel     `json:"level,omitempty"`
 	Data       map[string]any `json:"data,omitempty"`
+
+	// session tracking
+	SessionID string `json:"session_id,omitempty"`
+
+	// metric fields
+	MetricName  string            `json:"metric_name,omitempty"`
+	MetricValue float64           `json:"metric_value,omitempty"`
+	MetricUnit  string            `json:"metric_unit,omitempty"`
+	MetricTags  map[string]string `json:"metric_tags,omitempty"`
+
+	// feedback fields
+	FeedbackRating  int    `json:"rating,omitempty"`
+	FeedbackComment string `json:"comment,omitempty"`
+
+	// prompt tracking
+	PromptTemplate string `json:"prompt_template,omitempty"`
+	PromptVersion  int    `json:"prompt_version,omitempty"`
 }
 
 // marshalJSON produces the wire-format JSON for a TelemetryEvent, using only
@@ -71,6 +90,7 @@ func (e *TelemetryEvent) marshalJSON() ([]byte, error) {
 			AgentName:    e.AgentName,
 			AgentVersion: e.AgentVersion,
 			Environment:  e.Environment,
+			SessionID:    e.SessionID,
 			Input:        e.Input,
 			Metadata:     e.Metadata,
 			Timestamp:    e.Timestamp,
@@ -109,6 +129,24 @@ func (e *TelemetryEvent) marshalJSON() ([]byte, error) {
 			Data:      e.Data,
 			Timestamp: e.Timestamp,
 		})
+	case EventTypeMetric:
+		return json.Marshal(metricWire{
+			Type:       string(e.Type),
+			TraceID:    e.TraceID,
+			MetricName: e.MetricName,
+			MetricValue: e.MetricValue,
+			MetricUnit: e.MetricUnit,
+			MetricTags: e.MetricTags,
+			Timestamp:  e.Timestamp,
+		})
+	case EventTypeFeedback:
+		return json.Marshal(feedbackWire{
+			Type:    string(e.Type),
+			TraceID: e.TraceID,
+			Rating:  e.FeedbackRating,
+			Comment: e.FeedbackComment,
+			Timestamp: e.Timestamp,
+		})
 	default:
 		return json.Marshal(e)
 	}
@@ -122,6 +160,7 @@ type traceStartWire struct {
 	AgentName    string         `json:"agent_name"`
 	AgentVersion string         `json:"agent_version,omitempty"`
 	Environment  string         `json:"environment,omitempty"`
+	SessionID    string         `json:"session_id,omitempty"`
 	Input        map[string]any `json:"input,omitempty"`
 	Metadata     map[string]any `json:"metadata,omitempty"`
 	Timestamp    string         `json:"timestamp"`
@@ -159,6 +198,24 @@ type eventWire struct {
 	Level     string         `json:"level"`
 	Data      map[string]any `json:"data,omitempty"`
 	Timestamp string         `json:"timestamp"`
+}
+
+type metricWire struct {
+	Type        string            `json:"type"`
+	TraceID     string            `json:"trace_id,omitempty"`
+	MetricName  string            `json:"metric_name"`
+	MetricValue float64           `json:"metric_value"`
+	MetricUnit  string            `json:"metric_unit,omitempty"`
+	MetricTags  map[string]string `json:"metric_tags,omitempty"`
+	Timestamp   string            `json:"timestamp"`
+}
+
+type feedbackWire struct {
+	Type      string `json:"type"`
+	TraceID   string `json:"trace_id"`
+	Rating    int    `json:"rating"`
+	Comment   string `json:"comment,omitempty"`
+	Timestamp string `json:"timestamp"`
 }
 
 // BatchRequest is the top-level payload sent to the NodeLoom ingest API.

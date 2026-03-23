@@ -14,6 +14,7 @@ type Trace struct {
 	agentName    string
 	agentVersion string
 	environment  string
+	sessionID    string
 	input        map[string]any
 	metadata     map[string]any
 	startTime    time.Time
@@ -109,6 +110,21 @@ func (t *Trace) Event(name string, level EventLevel, data map[string]any) {
 		Timestamp: time.Now().UTC().Format(time.RFC3339Nano),
 	}
 
+	t.enqueue(event)
+}
+
+// Feedback submits feedback for this trace.
+func (t *Trace) Feedback(rating int, comment string) {
+	event := &TelemetryEvent{
+		Type:            EventTypeEvent,
+		TraceID:         t.traceID,
+		EventName:       "feedback",
+		Timestamp:       time.Now().UTC().Format(time.RFC3339Nano),
+		FeedbackRating:  rating,
+		FeedbackComment: comment,
+	}
+	// Override type to "feedback"
+	event.Type = "feedback"
 	t.enqueue(event)
 }
 

@@ -131,3 +131,105 @@ func (a *ApiClient) ListCredentials(teamID string) ([]byte, error) {
 func (a *ApiClient) CheckGuardrails(teamID string, body map[string]any) ([]byte, error) {
 	return a.Request("POST", "/api/guardrails/check?teamId="+url.QueryEscape(teamID), body)
 }
+
+// ── Feedback ────────────────────────────────────────────────
+
+// SubmitFeedback submits feedback for an execution.
+func (a *ApiClient) SubmitFeedback(body map[string]any) ([]byte, error) {
+	return a.Request("POST", "/api/sdk/v1/feedback", body)
+}
+
+// ListFeedback lists feedback. Pass params as query string.
+func (a *ApiClient) ListFeedback(params string) ([]byte, error) {
+	path := "/api/sdk/v1/feedback"
+	if params != "" {
+		path += "?" + params
+	}
+	return a.Request("GET", path, nil)
+}
+
+// ── Sentiment ───────────────────────────────────────────────
+
+// AnalyzeSentiment analyzes text sentiment.
+func (a *ApiClient) AnalyzeSentiment(body map[string]any) ([]byte, error) {
+	return a.Request("POST", "/api/sdk/v1/sentiment", body)
+}
+
+// ── Costs ───────────────────────────────────────────────────
+
+// GetCosts returns cost summary.
+func (a *ApiClient) GetCosts(params string) ([]byte, error) {
+	path := "/api/sdk/v1/costs"
+	if params != "" {
+		path += "?" + params
+	}
+	return a.Request("GET", path, nil)
+}
+
+// ── Webhooks ────────────────────────────────────────────────
+
+// RegisterWebhook registers an alert webhook.
+func (a *ApiClient) RegisterWebhook(body map[string]any) ([]byte, error) {
+	return a.Request("POST", "/api/sdk/v1/alerts/webhooks", body)
+}
+
+// ListWebhooks lists registered webhooks.
+func (a *ApiClient) ListWebhooks() ([]byte, error) {
+	return a.Request("GET", "/api/sdk/v1/alerts/webhooks", nil)
+}
+
+// DeleteWebhook deletes a webhook.
+func (a *ApiClient) DeleteWebhook(webhookID string) ([]byte, error) {
+	return a.Request("DELETE", "/api/sdk/v1/alerts/webhooks/"+url.QueryEscape(webhookID), nil)
+}
+
+// ── Prompts ─────────────────────────────────────────────────
+
+// CreatePrompt creates a prompt template version.
+func (a *ApiClient) CreatePrompt(body map[string]any) ([]byte, error) {
+	return a.Request("POST", "/api/sdk/v1/prompts", body)
+}
+
+// GetPrompt gets a prompt template by name. Pass version as query param.
+func (a *ApiClient) GetPrompt(name string, params string) ([]byte, error) {
+	path := "/api/sdk/v1/prompts/" + url.QueryEscape(name)
+	if params != "" {
+		path += "?" + params
+	}
+	return a.Request("GET", path, nil)
+}
+
+// ListPrompts lists all prompt templates.
+func (a *ApiClient) ListPrompts() ([]byte, error) {
+	return a.Request("GET", "/api/sdk/v1/prompts", nil)
+}
+
+// ── Red Team ────────────────────────────────────────────────
+
+// StartRedTeamScan starts a red team scan.
+func (a *ApiClient) StartRedTeamScan(body map[string]any) ([]byte, error) {
+	return a.Request("POST", "/api/sdk/v1/redteam/scan", body)
+}
+
+// GetRedTeamScan gets scan status and results.
+func (a *ApiClient) GetRedTeamScan(scanID string) ([]byte, error) {
+	return a.Request("GET", "/api/sdk/v1/redteam/scan/"+url.QueryEscape(scanID), nil)
+}
+
+// ── Evaluation ──────────────────────────────────────────────
+
+// TriggerEvaluation triggers LLM evaluation for an execution.
+func (a *ApiClient) TriggerEvaluation(body map[string]any) ([]byte, error) {
+	return a.Request("POST", "/api/sdk/v1/evaluate", body)
+}
+
+// ── Metrics ─────────────────────────────────────────────────
+
+// GetMetrics gets custom metrics aggregation.
+func (a *ApiClient) GetMetrics(params string) ([]byte, error) {
+	path := "/api/sdk/v1/metrics"
+	if params != "" {
+		path += "?" + params
+	}
+	return a.Request("GET", path, nil)
+}
