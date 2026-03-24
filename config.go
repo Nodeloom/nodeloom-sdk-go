@@ -4,7 +4,7 @@ import "time"
 
 const (
 	// SDKVersion is the version of this SDK.
-	SDKVersion = "0.4.0"
+	SDKVersion = "0.5.0"
 
 	// SDKLanguage identifies the language of this SDK in telemetry payloads.
 	SDKLanguage = "go"

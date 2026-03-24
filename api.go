@@ -236,6 +236,11 @@ func (a *ApiClient) RemoveCallbackUrl(agentName string) ([]byte, error) {
 	return a.Request("DELETE", "/api/sdk/v1/agents/"+url.QueryEscape(agentName)+"/callback", nil)
 }
 
+// GetGuardrailConfig gets the current guardrail config for an SDK agent (read-only, configure via NodeLoom UI).
+func (a *ApiClient) GetGuardrailConfig(agentName string) ([]byte, error) {
+	return a.Request("GET", "/api/sdk/v1/agents/"+url.QueryEscape(agentName)+"/guardrails", nil)
+}
+
 // GetMetrics gets custom metrics aggregation.
 func (a *ApiClient) GetMetrics(params string) ([]byte, error) {
 	path := "/api/sdk/v1/metrics"
