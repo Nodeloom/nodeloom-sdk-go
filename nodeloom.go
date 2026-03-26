@@ -99,6 +99,7 @@ func (c *Client) Trace(agentName string, opts ...TraceOption) *Trace {
 		SessionID:    cfg.sessionID,
 		Input:        cfg.input,
 		Metadata:     cfg.metadata,
+		SDKLanguage:  "go",
 		Timestamp:    t.startTime.Format(time.RFC3339Nano),
 	}
 	c.enqueue(event)
