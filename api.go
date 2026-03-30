@@ -67,7 +67,7 @@ func (a *ApiClient) Request(method, path string, body any) ([]byte, error) {
 	}
 	defer resp.Body.Close()
 
-	respBody, err := io.ReadAll(resp.Body)
+	respBody, err := io.ReadAll(io.LimitReader(resp.Body, 10<<20)) // 10 MB limit
 	if err != nil {
 		return nil, fmt.Errorf("read response: %w", err)
 	}

@@ -100,7 +100,7 @@ func (t *transport) postWithRetry(ctx context.Context, body []byte) error {
 		}
 
 		// Always drain the body so the connection can be reused.
-		respBody, _ := io.ReadAll(resp.Body)
+		respBody, _ := io.ReadAll(io.LimitReader(resp.Body, 1<<20)) // 1 MB limit
 		resp.Body.Close()
 
 		if resp.StatusCode >= 200 && resp.StatusCode < 300 {

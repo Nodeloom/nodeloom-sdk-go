@@ -1,10 +1,15 @@
 package nodeloom
 
-import "time"
+import (
+	"fmt"
+	"log"
+	"strings"
+	"time"
+)
 
 const (
 	// SDKVersion is the version of this SDK.
-	SDKVersion = "0.6.0"
+	SDKVersion = "0.7.0"
 
 	// SDKLanguage identifies the language of this SDK in telemetry payloads.
 	SDKLanguage = "go"
@@ -31,6 +36,15 @@ type Config struct {
 	ShutdownWait  time.Duration
 }
 
+// String returns a human-readable representation of Config with the API key masked.
+func (c *Config) String() string {
+	maskedKey := "***"
+	if len(c.APIKey) > 6 {
+		maskedKey = c.APIKey[:6] + "***"
+	}
+	return fmt.Sprintf("Config{Endpoint:%s, APIKey:%s, Environment:%s}", c.Endpoint, maskedKey, c.Environment)
+}
+
 func defaultConfig(apiKey string) Config {
 	return Config{
 		APIKey:        apiKey,
@@ -51,6 +65,9 @@ type Option func(*Config)
 func WithEndpoint(endpoint string) Option {
 	return func(c *Config) {
 		c.Endpoint = endpoint
+		if !strings.HasPrefix(endpoint, "https://") && !strings.Contains(endpoint, "localhost") && !strings.Contains(endpoint, "127.0.0.1") {
+			log.Printf("[nodeloom] WARNING: endpoint '%s' does not use HTTPS. API keys will be sent in plaintext.", endpoint)
+		}
 	}
 }
 
