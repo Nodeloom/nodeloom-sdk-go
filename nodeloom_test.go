@@ -153,8 +153,8 @@ func TestClient_FlushAfterClose(t *testing.T) {
 }
 
 func TestSDKConstants(t *testing.T) {
-	if SDKVersion != "0.7.0" {
-		t.Errorf("expected SDK version '0.7.0', got %q", SDKVersion)
+	if SDKVersion != "0.8.0" {
+		t.Errorf("expected SDK version '0.8.0', got %q", SDKVersion)
 	}
 	if SDKLanguage != "go" {
 		t.Errorf("expected SDK language 'go', got %q", SDKLanguage)
