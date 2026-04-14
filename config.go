@@ -9,7 +9,7 @@ import (
 
 const (
 	// SDKVersion is the version of this SDK.
-	SDKVersion = "0.7.0"
+	SDKVersion = "0.9.0"
 
 	// SDKLanguage identifies the language of this SDK in telemetry payloads.
 	SDKLanguage = "go"
