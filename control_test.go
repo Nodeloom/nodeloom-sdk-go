@@ -3,6 +3,7 @@ package nodeloom
 import (
 	"encoding/json"
 	"errors"
+	"io"
 	"net/http"
 	"net/http/httptest"
 	"strings"
@@ -186,12 +187,15 @@ func TestClient_TraceWithControl_ReturnsHaltError(t *testing.T) {
 }
 
 func TestClient_Trace_AttachesGuardrailSessionID(t *testing.T) {
-	// Capture the events the transport sends.
-	var captured []byte
+	// Capture the first request body. The channel synchronizes the handler
+	// goroutine with the test goroutine so -race can't flag a read/write race.
+	received := make(chan []byte, 1)
 	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		body := make([]byte, r.ContentLength)
-		_, _ = r.Body.Read(body)
-		captured = body
+		body, _ := io.ReadAll(r.Body)
+		select {
+		case received <- body:
+		default: // already captured the first payload; drop subsequent.
+		}
 		w.WriteHeader(http.StatusOK)
 		_, _ = w.Write([]byte(`{"accepted":1,"rejected":0,"errors":[]}`))
 	}))
@@ -212,13 +216,14 @@ func TestClient_Trace_AttachesGuardrailSessionID(t *testing.T) {
 	}
 	trace.End(StatusSuccess)
 	c.Flush()
-	time.Sleep(150 * time.Millisecond)
 
-	if len(captured) == 0 {
-		t.Fatalf("transport did not capture any payload")
-	}
-	if !strings.Contains(string(captured), `"guardrail_session_id":"sess-xyz"`) {
-		t.Errorf("expected guardrail_session_id in payload, got: %s", string(captured))
+	select {
+	case captured := <-received:
+		if !strings.Contains(string(captured), `"guardrail_session_id":"sess-xyz"`) {
+			t.Errorf("expected guardrail_session_id in payload, got: %s", string(captured))
+		}
+	case <-time.After(3 * time.Second):
+		t.Fatal("transport did not send any payload within 3s")
 	}
 }
 
