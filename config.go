@@ -9,31 +9,36 @@ import (
 
 const (
 	// SDKVersion is the version of this SDK.
-	SDKVersion = "0.9.0"
+	SDKVersion = "0.10.0"
 
 	// SDKLanguage identifies the language of this SDK in telemetry payloads.
 	SDKLanguage = "go"
 
-	defaultEndpoint      = "https://api.nodeloom.io"
-	defaultBatchSize     = 100
-	defaultFlushInterval = 5 * time.Second
-	defaultMaxQueueSize  = 10000
-	defaultEnvironment   = "production"
-	defaultMaxRetries    = 3
-	defaultShutdownWait  = 5 * time.Second
+	defaultEndpoint            = "https://api.nodeloom.io"
+	defaultBatchSize           = 100
+	defaultFlushInterval       = 5 * time.Second
+	defaultMaxQueueSize        = 10000
+	defaultEnvironment         = "production"
+	defaultMaxRetries          = 3
+	defaultShutdownWait        = 5 * time.Second
+	defaultControlPollInterval = 60 * time.Second
 )
 
 // Config holds the configuration for a NodeLoom client.
 type Config struct {
-	APIKey        string
-	Endpoint      string
-	BatchSize     int
-	FlushInterval time.Duration
-	MaxQueueSize  int
-	Environment   string
-	AgentVersion  string
-	MaxRetries    int
-	ShutdownWait  time.Duration
+	APIKey              string
+	Endpoint            string
+	BatchSize           int
+	FlushInterval       time.Duration
+	MaxQueueSize        int
+	Environment         string
+	AgentVersion        string
+	MaxRetries          int
+	ShutdownWait        time.Duration
+	// ControlPollInterval is the cadence of standalone control polls. Telemetry
+	// batch responses already carry the control payload, so polling is mainly
+	// useful for sparse-traffic agents. Set to 0 to disable.
+	ControlPollInterval time.Duration
 }
 
 // String returns a human-readable representation of Config with the API key masked.
@@ -47,14 +52,15 @@ func (c *Config) String() string {
 
 func defaultConfig(apiKey string) Config {
 	return Config{
-		APIKey:        apiKey,
-		Endpoint:      defaultEndpoint,
-		BatchSize:     defaultBatchSize,
-		FlushInterval: defaultFlushInterval,
-		MaxQueueSize:  defaultMaxQueueSize,
-		Environment:   defaultEnvironment,
-		MaxRetries:    defaultMaxRetries,
-		ShutdownWait:  defaultShutdownWait,
+		APIKey:              apiKey,
+		Endpoint:            defaultEndpoint,
+		BatchSize:           defaultBatchSize,
+		FlushInterval:       defaultFlushInterval,
+		MaxQueueSize:        defaultMaxQueueSize,
+		Environment:         defaultEnvironment,
+		MaxRetries:          defaultMaxRetries,
+		ShutdownWait:        defaultShutdownWait,
+		ControlPollInterval: defaultControlPollInterval,
 	}
 }
 
@@ -112,6 +118,17 @@ func WithEnvironment(env string) Option {
 func WithAgentVersion(version string) Option {
 	return func(c *Config) {
 		c.AgentVersion = version
+	}
+}
+
+// WithControlPollInterval sets the cadence of standalone control polls. Pass
+// 0 to disable the dedicated poller (the registry still updates from telemetry
+// batch responses).
+func WithControlPollInterval(d time.Duration) Option {
+	return func(c *Config) {
+		if d >= 0 {
+			c.ControlPollInterval = d
+		}
 	}
 }
 

@@ -17,14 +17,20 @@ type ApiClient struct {
 	httpClient *http.Client
 	endpoint   string
 	apiKey     string
+	registry   *ControlRegistry
 }
 
 // newApiClient creates a new API client with the given configuration.
 func newApiClient(apiKey, endpoint string) *ApiClient {
+	return newApiClientWithRegistry(apiKey, endpoint, nil)
+}
+
+func newApiClientWithRegistry(apiKey, endpoint string, registry *ControlRegistry) *ApiClient {
 	return &ApiClient{
 		httpClient: &http.Client{Timeout: 30 * time.Second},
 		endpoint:   strings.TrimRight(endpoint, "/"),
 		apiKey:     apiKey,
+		registry:   registry,
 	}
 }
 
@@ -128,8 +134,50 @@ func (a *ApiClient) ListCredentials(teamID string) ([]byte, error) {
 }
 
 // CheckGuardrails runs guardrail checks on text content.
+//
+// When the request body includes ``agentName`` and the response carries a
+// ``guardrailSessionId``, the client caches the id in the control registry so
+// subsequent traces attach it for HARD-mode required-guardrail enforcement.
 func (a *ApiClient) CheckGuardrails(teamID string, body map[string]any) ([]byte, error) {
-	return a.Request("POST", "/api/guardrails/check?teamId="+url.QueryEscape(teamID), body)
+	respBody, err := a.Request("POST", "/api/guardrails/check?teamId="+url.QueryEscape(teamID), body)
+	if err != nil {
+		return respBody, err
+	}
+	if a.registry != nil && len(respBody) > 0 {
+		var parsed struct {
+			GuardrailSessionID string `json:"guardrailSessionId"`
+		}
+		if jerr := json.Unmarshal(respBody, &parsed); jerr == nil && parsed.GuardrailSessionID != "" {
+			agentName, _ := body["agentName"].(string)
+			if agentName != "" {
+				snap := a.registry.Snapshot(agentName)
+				ttl := snap.GuardrailSessionTTLSeconds
+				if ttl <= 0 {
+					ttl = 300
+				}
+				a.registry.RecordGuardrailSession(agentName, parsed.GuardrailSessionID, ttl)
+			}
+		}
+	}
+	return respBody, nil
+}
+
+// GetAgentControl fetches the current remote-control payload for an agent.
+// When the client was built with a control registry, the payload is also
+// merged into the registry so subsequent traces immediately observe halt state.
+func (a *ApiClient) GetAgentControl(agentName string) (*AgentControlPayload, error) {
+	body, err := a.Request("GET", "/api/sdk/v1/agents/"+url.QueryEscape(agentName)+"/control", nil)
+	if err != nil {
+		return nil, err
+	}
+	var payload AgentControlPayload
+	if err := json.Unmarshal(body, &payload); err != nil {
+		return nil, fmt.Errorf("decode control payload: %w", err)
+	}
+	if a.registry != nil {
+		a.registry.Update(&payload)
+	}
+	return &payload, nil
 }
 
 // ── Feedback ────────────────────────────────────────────────

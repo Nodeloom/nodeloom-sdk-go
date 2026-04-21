@@ -37,6 +37,9 @@ type TelemetryEvent struct {
 	Environment  string         `json:"environment,omitempty"`
 	Input        map[string]any `json:"input,omitempty"`
 	Metadata     map[string]any `json:"metadata,omitempty"`
+	// GuardrailSessionID is attached to trace_start when a recent
+	// CheckGuardrails call has cached a session id (HARD-mode enforcement).
+	GuardrailSessionID string `json:"guardrail_session_id,omitempty"`
 
 	// trace_end fields
 	Status    TraceStatus    `json:"status,omitempty"`
@@ -90,18 +93,19 @@ func (e *TelemetryEvent) marshalJSON() ([]byte, error) {
 	switch e.Type {
 	case EventTypeTraceStart:
 		return json.Marshal(traceStartWire{
-			Type:             string(e.Type),
-			TraceID:          e.TraceID,
-			AgentName:        e.AgentName,
-			AgentVersion:     e.AgentVersion,
-			Environment:      e.Environment,
-			SessionID:        e.SessionID,
-			Input:            e.Input,
-			Metadata:         e.Metadata,
-			Framework:        e.Framework,
-			FrameworkVersion: e.FrameworkVersion,
-			SDKLanguage:      e.SDKLanguage,
-			Timestamp:        e.Timestamp,
+			Type:               string(e.Type),
+			TraceID:            e.TraceID,
+			AgentName:          e.AgentName,
+			AgentVersion:       e.AgentVersion,
+			Environment:        e.Environment,
+			SessionID:          e.SessionID,
+			Input:              e.Input,
+			Metadata:           e.Metadata,
+			Framework:          e.Framework,
+			FrameworkVersion:   e.FrameworkVersion,
+			SDKLanguage:        e.SDKLanguage,
+			GuardrailSessionID: e.GuardrailSessionID,
+			Timestamp:          e.Timestamp,
 		})
 	case EventTypeTraceEnd:
 		return json.Marshal(traceEndWire{
@@ -163,18 +167,19 @@ func (e *TelemetryEvent) marshalJSON() ([]byte, error) {
 // Wire format structs for clean JSON serialization.
 
 type traceStartWire struct {
-	Type             string         `json:"type"`
-	TraceID          string         `json:"trace_id"`
-	AgentName        string         `json:"agent_name"`
-	AgentVersion     string         `json:"agent_version,omitempty"`
-	Environment      string         `json:"environment,omitempty"`
-	SessionID        string         `json:"session_id,omitempty"`
-	Input            map[string]any `json:"input,omitempty"`
-	Metadata         map[string]any `json:"metadata,omitempty"`
-	Framework        string         `json:"framework,omitempty"`
-	FrameworkVersion string         `json:"framework_version,omitempty"`
-	SDKLanguage      string         `json:"sdk_language,omitempty"`
-	Timestamp        string         `json:"timestamp"`
+	Type               string         `json:"type"`
+	TraceID            string         `json:"trace_id"`
+	AgentName          string         `json:"agent_name"`
+	AgentVersion       string         `json:"agent_version,omitempty"`
+	Environment        string         `json:"environment,omitempty"`
+	SessionID          string         `json:"session_id,omitempty"`
+	Input              map[string]any `json:"input,omitempty"`
+	Metadata           map[string]any `json:"metadata,omitempty"`
+	Framework          string         `json:"framework,omitempty"`
+	FrameworkVersion   string         `json:"framework_version,omitempty"`
+	SDKLanguage        string         `json:"sdk_language,omitempty"`
+	GuardrailSessionID string         `json:"guardrail_session_id,omitempty"`
+	Timestamp          string         `json:"timestamp"`
 }
 
 type traceEndWire struct {
