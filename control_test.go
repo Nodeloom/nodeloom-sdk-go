@@ -187,14 +187,15 @@ func TestClient_TraceWithControl_ReturnsHaltError(t *testing.T) {
 }
 
 func TestClient_Trace_AttachesGuardrailSessionID(t *testing.T) {
-	// Capture the first request body. The channel synchronizes the handler
-	// goroutine with the test goroutine so -race can't flag a read/write race.
-	received := make(chan []byte, 1)
+	// Collect every request body the transport sends. trace_start may land in
+	// a different batch than trace_end depending on auto-flush timing, so we
+	// scan ALL captured payloads for the one carrying the session id.
+	received := make(chan []byte, 16)
 	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		body, _ := io.ReadAll(r.Body)
 		select {
 		case received <- body:
-		default: // already captured the first payload; drop subsequent.
+		default:
 		}
 		w.WriteHeader(http.StatusOK)
 		_, _ = w.Write([]byte(`{"accepted":1,"rejected":0,"errors":[]}`))
@@ -206,7 +207,6 @@ func TestClient_Trace_AttachesGuardrailSessionID(t *testing.T) {
 		WithFlushInterval(50*time.Millisecond),
 		WithControlPollInterval(0),
 	)
-	defer c.Close()
 
 	c.registry.recordGuardrailSession("ok", "sess-xyz", 300, time.Now().UnixMilli())
 
@@ -215,15 +215,22 @@ func TestClient_Trace_AttachesGuardrailSessionID(t *testing.T) {
 		t.Fatalf("unexpected error: %v", err)
 	}
 	trace.End(StatusSuccess)
-	c.Flush()
 
-	select {
-	case captured := <-received:
-		if !strings.Contains(string(captured), `"guardrail_session_id":"sess-xyz"`) {
-			t.Errorf("expected guardrail_session_id in payload, got: %s", string(captured))
+	// Close() forces a synchronous drain of the processor's buffer through
+	// the transport — the guaranteed delivery path used by real callers
+	// before process exit. Avoids racing with the auto-flush ticker.
+	c.Close()
+
+	deadline := time.After(5 * time.Second)
+	for {
+		select {
+		case captured := <-received:
+			if strings.Contains(string(captured), `"guardrail_session_id":"sess-xyz"`) {
+				return // found it
+			}
+		case <-deadline:
+			t.Fatalf("no captured payload carried the guardrail session id")
 		}
-	case <-time.After(3 * time.Second):
-		t.Fatal("transport did not send any payload within 3s")
 	}
 }
 
