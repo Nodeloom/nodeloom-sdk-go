@@ -220,7 +220,7 @@ func (c *Client) Close() {
 	c.mu.Unlock()
 
 	if c.poller != nil {
-		c.poller.stop()
+		c.poller.stop(c.config.ShutdownWait)
 	}
 	c.proc.stop(c.config.ShutdownWait)
 }

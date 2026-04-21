@@ -327,6 +327,39 @@ func TestApiClient_CheckGuardrails_CachesSessionID(t *testing.T) {
 	}
 }
 
+// stop() must honor its timeout so Client.Close doesn't hang when a
+// tick is mid-HTTP to a slow or unreachable backend.
+func TestControlPoller_StopIsBoundedByTimeout(t *testing.T) {
+	blockUntil := make(chan struct{})
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		<-blockUntil
+		w.WriteHeader(http.StatusOK)
+		_, _ = w.Write([]byte(`{"agent_name":"a","halted":false,"revision":1,"require_guardrails":"OFF"}`))
+	}))
+	defer srv.Close()
+	defer close(blockUntil)
+
+	registry := NewControlRegistry()
+	// Seed a known agent so the tick has something to poll.
+	registry.Update(&AgentControlPayload{AgentName: "a", Revision: 1})
+	apiFactory := func() *ApiClient {
+		return newApiClientWithRegistry("sdk_test", srv.URL, registry)
+	}
+	poller := newControlPoller(registry, apiFactory, 10*time.Millisecond)
+	poller.start()
+
+	// Let one tick start so we're mid-blocking-request when stop fires.
+	time.Sleep(50 * time.Millisecond)
+
+	start := time.Now()
+	poller.stop(100 * time.Millisecond)
+	elapsed := time.Since(start)
+
+	if elapsed > 300*time.Millisecond {
+		t.Errorf("stop timeout not honored: elapsed %v > 300ms", elapsed)
+	}
+}
+
 // CheckGuardrails called with an empty teamID must omit the teamId query
 // param entirely so the backend can fall back to inferring team from the
 // SDK token. This is the code path Anthropic integrations rely on since

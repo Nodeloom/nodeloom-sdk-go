@@ -10,12 +10,12 @@ import (
 // responses already piggy-back the control payload, so this is mainly useful
 // for sparse-traffic agents that may go minutes between traces.
 type controlPoller struct {
-	registry  *ControlRegistry
-	apiFunc   func() *ApiClient
-	interval  time.Duration
-	stopOnce  sync.Once
-	stopChan  chan struct{}
-	doneChan  chan struct{}
+	registry *ControlRegistry
+	apiFunc  func() *ApiClient
+	interval time.Duration
+	stopOnce sync.Once
+	stopChan chan struct{}
+	doneChan chan struct{}
 }
 
 func newControlPoller(registry *ControlRegistry, apiFunc func() *ApiClient, interval time.Duration) *controlPoller {
@@ -32,10 +32,18 @@ func (p *controlPoller) start() {
 	go p.run()
 }
 
-func (p *controlPoller) stop() {
+// stop signals the loop to exit and waits, bounded by timeout so shutdown
+// cannot block indefinitely on a slow in-flight GetAgentControl request.
+// If the tick is stuck in a network call it will finish on its own; the
+// stopOnce guarantee means the second shutdown call is a no-op.
+func (p *controlPoller) stop(timeout time.Duration) {
 	p.stopOnce.Do(func() {
 		close(p.stopChan)
-		<-p.doneChan
+		select {
+		case <-p.doneChan:
+		case <-time.After(timeout):
+			log.Printf("[nodeloom] control poller stop timed out after %v (in-flight tick will finish in background)", timeout)
+		}
 	})
 }
 
@@ -67,6 +75,13 @@ func (p *controlPoller) tick() {
 		return
 	}
 	for _, name := range p.registry.KnownAgents() {
+		// Bail fast when shutdown lands between per-agent calls so we
+		// don't waste cycles iterating a long KnownAgents list.
+		select {
+		case <-p.stopChan:
+			return
+		default:
+		}
 		if _, err := api.GetAgentControl(name); err != nil {
 			log.Printf("[nodeloom] control poll for %q failed: %v", name, err)
 		}
