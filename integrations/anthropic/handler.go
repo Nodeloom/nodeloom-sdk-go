@@ -45,6 +45,7 @@ func (h *ManagedAgentsHandler) TraceSession(sessionID string) *SessionTrace {
 	return &SessionTrace{
 		trace:       trace,
 		client:      h.client,
+		agentName:   h.agentName,
 		guardrails:  h.guardrails,
 		activeSpans: make(map[string]*nodeloom.Span),
 	}
@@ -54,6 +55,7 @@ func (h *ManagedAgentsHandler) TraceSession(sessionID string) *SessionTrace {
 type SessionTrace struct {
 	trace       *nodeloom.Trace
 	client      *nodeloom.Client
+	agentName   string
 	guardrails  bool
 	activeSpans map[string]*nodeloom.Span
 	lastOutput  map[string]interface{}
@@ -96,7 +98,7 @@ func (s *SessionTrace) CheckInput(text string) (map[string]interface{}, error) {
 	if !s.guardrails {
 		return map[string]interface{}{"passed": true, "violations": []interface{}{}}, nil
 	}
-	body := map[string]any{"text": text, "direction": "input"}
+	body := map[string]any{"text": text, "direction": "input", "agentName": s.agentName}
 	resp, err := s.client.Api().CheckGuardrails("", body)
 	if err != nil {
 		return map[string]interface{}{"passed": true, "violations": []interface{}{}}, err
@@ -114,7 +116,7 @@ func (s *SessionTrace) CheckOutput(text string) (map[string]interface{}, error) 
 	if !s.guardrails {
 		return map[string]interface{}{"passed": true, "violations": []interface{}{}}, nil
 	}
-	body := map[string]any{"text": text, "direction": "output"}
+	body := map[string]any{"text": text, "direction": "output", "agentName": s.agentName}
 	resp, err := s.client.Api().CheckGuardrails("", body)
 	if err != nil {
 		return map[string]interface{}{"passed": true, "violations": []interface{}{}}, err

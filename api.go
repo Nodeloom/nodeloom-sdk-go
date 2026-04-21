@@ -138,8 +138,15 @@ func (a *ApiClient) ListCredentials(teamID string) ([]byte, error) {
 // When the request body includes ``agentName`` and the response carries a
 // ``guardrailSessionId``, the client caches the id in the control registry so
 // subsequent traces attach it for HARD-mode required-guardrail enforcement.
+//
+// teamID is optional when the SDK token is configured — the backend infers
+// the team from the token. Pass an empty string to rely on token-based auth.
 func (a *ApiClient) CheckGuardrails(teamID string, body map[string]any) ([]byte, error) {
-	respBody, err := a.Request("POST", "/api/guardrails/check?teamId="+url.QueryEscape(teamID), body)
+	path := "/api/guardrails/check"
+	if teamID != "" {
+		path += "?teamId=" + url.QueryEscape(teamID)
+	}
+	respBody, err := a.Request("POST", path, body)
 	if err != nil {
 		return respBody, err
 	}
