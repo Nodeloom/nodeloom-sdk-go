@@ -326,3 +326,26 @@ func TestApiClient_CheckGuardrails_CachesSessionID(t *testing.T) {
 		t.Errorf("expected registry to cache 'sess-321'; got %q", got)
 	}
 }
+
+// CheckGuardrails called with an empty teamID must omit the teamId query
+// param entirely so the backend can fall back to inferring team from the
+// SDK token. This is the code path Anthropic integrations rely on since
+// they don't know the team UUID at call time.
+func TestApiClient_CheckGuardrails_EmptyTeamIDOmitsQueryParam(t *testing.T) {
+	var receivedPath string
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		receivedPath = r.URL.RequestURI()
+		w.WriteHeader(http.StatusOK)
+		_, _ = w.Write([]byte(`{"passed":true,"violations":[]}`))
+	}))
+	defer srv.Close()
+
+	api := newApiClient("sdk_test", srv.URL)
+	body := map[string]any{"text": "hello", "agentName": "agent-1"}
+	if _, err := api.CheckGuardrails("", body); err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	if receivedPath != "/api/guardrails/check" {
+		t.Errorf("expected path without teamId query; got %q", receivedPath)
+	}
+}
