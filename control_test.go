@@ -117,6 +117,46 @@ func TestControlRegistry_BlankInputsAreNoop(t *testing.T) {
 	}
 }
 
+func TestControlRegistry_ClampsNonsensicalTTL(t *testing.T) {
+	r := NewControlRegistry()
+	r.Update(&AgentControlPayload{AgentName: "agent-1", HaltSource: HaltSourceNone, Revision: 1,
+		RequireGuardrails: "OFF", GuardrailSessionTTLSeconds: 120})
+	if got := r.Snapshot("agent-1").GuardrailSessionTTLSeconds; got != 120 {
+		t.Fatalf("baseline TTL wrong: got %d", got)
+	}
+	// Negative TTL rejected; previous value preserved.
+	r.Update(&AgentControlPayload{AgentName: "agent-1", HaltSource: HaltSourceNone, Revision: 2,
+		RequireGuardrails: "OFF", GuardrailSessionTTLSeconds: -5})
+	if got := r.Snapshot("agent-1").GuardrailSessionTTLSeconds; got != 120 {
+		t.Errorf("negative TTL should be rejected; got %d", got)
+	}
+	// Huge TTL rejected too.
+	r.Update(&AgentControlPayload{AgentName: "agent-1", HaltSource: HaltSourceNone, Revision: 3,
+		RequireGuardrails: "OFF", GuardrailSessionTTLSeconds: 1_000_000})
+	if got := r.Snapshot("agent-1").GuardrailSessionTTLSeconds; got != 120 {
+		t.Errorf("over-cap TTL should be rejected; got %d", got)
+	}
+}
+
+func TestControlRegistry_AgentSourceDoesNotClearTeamHalt(t *testing.T) {
+	r := NewControlRegistry()
+	r.Update(&AgentControlPayload{
+		AgentName: "agent-1", Halted: true, HaltSource: HaltSourceTeam,
+		HaltReason: "incident", Revision: 1_000_000,
+	})
+	// Even with a higher revision, an agent-source payload must not clear team halt.
+	r.Update(&AgentControlPayload{
+		AgentName: "agent-1", Halted: false, HaltSource: HaltSourceAgent, Revision: 2_000_000,
+	})
+	snap := r.Snapshot("agent-1")
+	if !snap.Halted {
+		t.Errorf("team halt cleared by agent-source payload; should not be")
+	}
+	if snap.HaltSource != HaltSourceTeam {
+		t.Errorf("source should still be 'team'; got %q", snap.HaltSource)
+	}
+}
+
 func TestAgentHaltedError_IsSentinel(t *testing.T) {
 	err := &AgentHaltedError{AgentName: "agent-1", Reason: "x", Source: HaltSourceAgent, Revision: 1}
 	if !errors.Is(err, ErrAgentHalted) {

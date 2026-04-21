@@ -166,17 +166,13 @@ func (r *ControlRegistry) Update(payload *AgentControlPayload) {
 	revision := payload.Revision
 	halted := payload.Halted
 
-	if source == HaltSourceTeam {
-		if revision >= r.teamRevision {
-			r.teamHalted = halted
-			r.teamHaltReason = payload.HaltReason
-			r.teamRevision = revision
-		}
-	} else if !halted && revision >= r.teamRevision {
-		// An agent-source payload that is not halted clears the team-wide flag
-		// when its revision is fresh.
-		r.teamHalted = false
-		r.teamHaltReason = ""
+	// Team-wide flag is only mutated by team-source payloads with fresh revisions.
+	// Agent-source payloads never touch team state — this prevents a piggy-backed
+	// agent response arriving late from clobbering a team halt issued after it.
+	if source == HaltSourceTeam && revision >= r.teamRevision {
+		r.teamHalted = halted
+		r.teamHaltReason = payload.HaltReason
+		r.teamRevision = revision
 	}
 
 	if payload.AgentName == "" {
@@ -204,8 +200,9 @@ func (r *ControlRegistry) Update(payload *AgentControlPayload) {
 	if payload.RequireGuardrails != "" {
 		entry.requireGuardrails = strings.ToUpper(payload.RequireGuardrails)
 	}
-	if payload.GuardrailSessionTTLSeconds > 0 {
-		entry.guardrailSessionTTLSeconds = payload.GuardrailSessionTTLSeconds
+	// Clamp TTL to [1, 86_400] seconds; guards against a buggy server payload.
+	if ttl := payload.GuardrailSessionTTLSeconds; ttl >= 1 && ttl <= 86_400 {
+		entry.guardrailSessionTTLSeconds = ttl
 	}
 }
 

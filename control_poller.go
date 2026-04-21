@@ -54,6 +54,14 @@ func (p *controlPoller) run() {
 }
 
 func (p *controlPoller) tick() {
+	// Guard against panics in the ApiClient factory or inside GetAgentControl —
+	// the poller goroutine must keep running across transient failures.
+	defer func() {
+		if r := recover(); r != nil {
+			log.Printf("[nodeloom] control poller panic recovered: %v", r)
+		}
+	}()
+
 	api := p.apiFunc()
 	if api == nil {
 		return
