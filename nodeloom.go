@@ -32,6 +32,8 @@ type Client struct {
 	queue     *queue
 	proc      *batchProcessor
 	apiClient *ApiClient
+	registry  *ControlRegistry
+	poller    *controlPoller
 	closed    bool
 }
 
@@ -49,13 +51,20 @@ func New(apiKey string, opts ...Option) *Client {
 	}
 
 	q := newQueue(cfg.MaxQueueSize)
-	t := newTransport(cfg.Endpoint, cfg.APIKey, cfg.MaxRetries)
+	registry := NewControlRegistry()
+	t := newTransportWithRegistry(cfg.Endpoint, cfg.APIKey, cfg.MaxRetries, registry)
 	proc := newBatchProcessor(q, t, cfg.BatchSize, cfg.FlushInterval)
 
 	c := &Client{
-		config: cfg,
-		queue:  q,
-		proc:   proc,
+		config:   cfg,
+		queue:    q,
+		proc:     proc,
+		registry: registry,
+	}
+
+	if cfg.ControlPollInterval > 0 {
+		c.poller = newControlPoller(registry, c.Api, cfg.ControlPollInterval)
+		c.poller.start()
 	}
 
 	proc.start()
@@ -65,7 +74,20 @@ func New(apiKey string, opts ...Option) *Client {
 // Trace starts a new trace for the named agent. A trace_start event is
 // immediately enqueued. The returned Trace should be ended with Trace.End()
 // when the agent execution completes.
+//
+// When the agent has been halted by the NodeLoom backend (per-agent or
+// team-wide), Trace returns a non-nil halted Trace alongside an
+// AgentHaltedError. Callers should check for ErrAgentHalted via
+// errors.Is and refuse to proceed.
 func (c *Client) Trace(agentName string, opts ...TraceOption) *Trace {
+	t, _ := c.TraceWithControl(agentName, opts...)
+	return t
+}
+
+// TraceWithControl is the explicit variant of Trace that surfaces halt errors.
+// Use this when you want to react to halt programmatically; otherwise use
+// Trace and check the returned trace's IsHalted() helper.
+func (c *Client) TraceWithControl(agentName string, opts ...TraceOption) (*Trace, error) {
 	cfg := &traceConfig{}
 	for _, opt := range opts {
 		opt(cfg)
@@ -89,22 +111,46 @@ func (c *Client) Trace(agentName string, opts ...TraceOption) *Trace {
 		t.sessionID = cfg.sessionID
 	}
 
+	// Halt check: if the registry says the agent (or its team) is halted, mark
+	// the trace as halted, skip the trace_start event, and return the error.
+	if c.registry != nil {
+		if haltErr := c.registry.haltError(agentName); haltErr != nil {
+			t.halted = true
+			return t, haltErr
+		}
+	}
+
+	// Phase 2: attach the cached guardrail session id so HARD-mode
+	// required-guardrail enforcement can correlate this trace with a recent check.
+	guardrailSessionID := ""
+	if c.registry != nil {
+		guardrailSessionID = c.registry.TakeGuardrailSession(agentName)
+	}
+
 	// Enqueue trace_start event immediately.
 	event := &TelemetryEvent{
-		Type:         EventTypeTraceStart,
-		TraceID:      traceID,
-		AgentName:    agentName,
-		AgentVersion: c.config.AgentVersion,
-		Environment:  c.config.Environment,
-		SessionID:    cfg.sessionID,
-		Input:        cfg.input,
-		Metadata:     cfg.metadata,
-		SDKLanguage:  "go",
-		Timestamp:    t.startTime.Format(time.RFC3339Nano),
+		Type:               EventTypeTraceStart,
+		TraceID:            traceID,
+		AgentName:          agentName,
+		AgentVersion:       c.config.AgentVersion,
+		Environment:        c.config.Environment,
+		SessionID:          cfg.sessionID,
+		Input:              cfg.input,
+		Metadata:           cfg.metadata,
+		SDKLanguage:        "go",
+		GuardrailSessionID: guardrailSessionID,
+		Timestamp:          t.startTime.Format(time.RFC3339Nano),
 	}
 	c.enqueue(event)
 
-	return t
+	return t, nil
+}
+
+// Control returns the in-memory control registry. Useful for tests and custom
+// halt-detection workflows; production callers typically rely on
+// TraceWithControl returning the halt error directly.
+func (c *Client) Control() *ControlRegistry {
+	return c.registry
 }
 
 // Metric records a custom metric event.
@@ -173,6 +219,9 @@ func (c *Client) Close() {
 	c.closed = true
 	c.mu.Unlock()
 
+	if c.poller != nil {
+		c.poller.stop(c.config.ShutdownWait)
+	}
 	c.proc.stop(c.config.ShutdownWait)
 }
 
@@ -182,7 +231,7 @@ func (c *Client) Api() *ApiClient {
 	c.mu.Lock()
 	defer c.mu.Unlock()
 	if c.apiClient == nil {
-		c.apiClient = newApiClient(c.config.APIKey, c.config.Endpoint)
+		c.apiClient = newApiClientWithRegistry(c.config.APIKey, c.config.Endpoint, c.registry)
 	}
 	return c.apiClient
 }
