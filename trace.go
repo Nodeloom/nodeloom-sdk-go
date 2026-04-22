@@ -19,9 +19,20 @@ type Trace struct {
 	metadata     map[string]any
 	startTime    time.Time
 	ended        bool
+	halted       bool
 
 	enqueue func(*TelemetryEvent)
 	genID   func() string
+}
+
+// IsHalted reports whether this trace was created against a halted agent.
+// When true, no trace_start was enqueued; spans/end events are still safe to
+// call but will be no-ops on the backend (the agent is halted, telemetry will
+// be rejected). Callers should normally check this and skip work.
+func (t *Trace) IsHalted() bool {
+	t.mu.Lock()
+	defer t.mu.Unlock()
+	return t.halted
 }
 
 // Span creates a new child span within this trace.

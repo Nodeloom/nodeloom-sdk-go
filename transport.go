@@ -18,10 +18,15 @@ type transport struct {
 	endpoint   string
 	apiKey     string
 	maxRetries int
+	registry   *ControlRegistry
 }
 
 // newTransport creates a transport configured for the given endpoint and API key.
 func newTransport(endpoint, apiKey string, maxRetries int) *transport {
+	return newTransportWithRegistry(endpoint, apiKey, maxRetries, nil)
+}
+
+func newTransportWithRegistry(endpoint, apiKey string, maxRetries int, registry *ControlRegistry) *transport {
 	return &transport{
 		client: &http.Client{
 			Timeout: 30 * time.Second,
@@ -29,6 +34,7 @@ func newTransport(endpoint, apiKey string, maxRetries int) *transport {
 		endpoint:   endpoint,
 		apiKey:     apiKey,
 		maxRetries: maxRetries,
+		registry:   registry,
 	}
 }
 
@@ -104,6 +110,7 @@ func (t *transport) postWithRetry(ctx context.Context, body []byte) error {
 		resp.Body.Close()
 
 		if resp.StatusCode >= 200 && resp.StatusCode < 300 {
+			t.maybeUpdateControl(respBody)
 			return nil
 		}
 
@@ -119,4 +126,21 @@ func (t *transport) postWithRetry(ctx context.Context, body []byte) error {
 	}
 
 	return fmt.Errorf("all %d attempts exhausted: %w", t.maxRetries+1, lastErr)
+}
+
+// maybeUpdateControl forwards the piggy-backed control payload to the registry.
+// Best-effort: parse failures are swallowed so they never break ingestion.
+func (t *transport) maybeUpdateControl(body []byte) {
+	if t.registry == nil || len(body) == 0 {
+		return
+	}
+	var envelope struct {
+		Control *AgentControlPayload `json:"control"`
+	}
+	if err := json.Unmarshal(body, &envelope); err != nil {
+		return
+	}
+	if envelope.Control != nil {
+		t.registry.Update(envelope.Control)
+	}
 }
