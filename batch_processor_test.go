@@ -424,7 +424,7 @@ func TestEventWireFormat_Span(t *testing.T) {
 		SpanStatus:   StatusSuccess,
 		SpanInput:    map[string]any{"prompt": "hi"},
 		SpanOutput:   map[string]any{"response": "hello"},
-		TokenUsage:   &TokenUsage{PromptTokens: 10, CompletionTokens: 20, TotalTokens: 30, Model: "gpt-4o"},
+		TokenUsage:   &TokenUsage{PromptTokens: 10, CompletionTokens: 20, TotalTokens: 30, Model: "gpt-5.6-terra"},
 		Timestamp:    "2024-01-01T00:00:00Z",
 		EndTimestamp:  "2024-01-01T00:00:01Z",
 	}
@@ -456,8 +456,8 @@ func TestEventWireFormat_Span(t *testing.T) {
 	if !ok {
 		t.Fatal("expected token_usage to be a map")
 	}
-	if tu["model"] != "gpt-4o" {
-		t.Errorf("expected model 'gpt-4o', got %v", tu["model"])
+	if tu["model"] != "gpt-5.6-terra" {
+		t.Errorf("expected model 'gpt-5.6-terra', got %v", tu["model"])
 	}
 }
 
@@ -547,7 +547,7 @@ func TestEndToEnd_Integration(t *testing.T) {
 		WithSpanInput(map[string]any{"prompt": "hello"}),
 	)
 	span.SetOutput(map[string]any{"response": "hi there"})
-	span.SetTokenUsage(10, 20, "gpt-4o")
+	span.SetTokenUsage(10, 20, "gpt-5.6-terra")
 	span.End()
 
 	trace.Event("guardrail_check", EventLevelInfo, map[string]any{"passed": true})
