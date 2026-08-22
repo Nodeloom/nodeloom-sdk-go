@@ -81,7 +81,7 @@ func TestTrace_Span_WithOptions(t *testing.T) {
 	trace := newTestTrace(collector)
 
 	input := map[string]any{"prompt": "hello"}
-	meta := map[string]any{"model": "gpt-4o"}
+	meta := map[string]any{"model": "gpt-5.6-terra"}
 
 	span := trace.Span("llm-call", SpanTypeLLM,
 		WithSpanInput(input),
@@ -91,8 +91,8 @@ func TestTrace_Span_WithOptions(t *testing.T) {
 	if span.input["prompt"] != "hello" {
 		t.Errorf("expected input prompt 'hello', got %v", span.input["prompt"])
 	}
-	if span.metadata["model"] != "gpt-4o" {
-		t.Errorf("expected metadata model 'gpt-4o', got %v", span.metadata["model"])
+	if span.metadata["model"] != "gpt-5.6-terra" {
+		t.Errorf("expected metadata model 'gpt-5.6-terra', got %v", span.metadata["model"])
 	}
 }
 
@@ -257,7 +257,7 @@ func TestSpan_SetTokenUsage(t *testing.T) {
 	trace := newTestTrace(collector)
 
 	span := trace.Span("llm-call", SpanTypeLLM)
-	span.SetTokenUsage(150, 200, "gpt-4o")
+	span.SetTokenUsage(150, 200, "gpt-5.6-terra")
 	span.End()
 
 	events := collector.byType(EventTypeSpan)
@@ -278,8 +278,8 @@ func TestSpan_SetTokenUsage(t *testing.T) {
 	if tu.TotalTokens != 350 {
 		t.Errorf("expected 350 total tokens, got %d", tu.TotalTokens)
 	}
-	if tu.Model != "gpt-4o" {
-		t.Errorf("expected model 'gpt-4o', got %q", tu.Model)
+	if tu.Model != "gpt-5.6-terra" {
+		t.Errorf("expected model 'gpt-5.6-terra', got %q", tu.Model)
 	}
 }
 
