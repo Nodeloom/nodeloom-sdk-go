@@ -11,7 +11,7 @@
 //	trace := client.Trace("my-agent", nodeloom.WithInput(map[string]any{"query": "..."}))
 //	span := trace.Span("openai-call", nodeloom.SpanTypeLLM)
 //	span.SetOutput(result)
-//	span.SetTokenUsage(150, 200, "gpt-4o")
+//	span.SetTokenUsage(150, 200, "gpt-5.6-terra")
 //	span.End()
 //	trace.End(nodeloom.StatusSuccess, nodeloom.WithOutput(finalResult))
 package nodeloom

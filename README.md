@@ -46,7 +46,7 @@ func main() {
         }),
     )
     span.SetOutput(map[string]any{"text": "NodeLoom is an AI agent operations platform."})
-    span.SetTokenUsage(15, 20, "gpt-4o")
+    span.SetTokenUsage(15, 20, "gpt-5.6-terra")
     span.End()
 
     trace.End(nodeloom.StatusSuccess, nodeloom.WithOutput(map[string]any{
@@ -78,7 +78,7 @@ childSpan := trace.ChildSpan("llm-call", nodeloom.SpanTypeLLM, parentSpan,
     nodeloom.WithSpanInput(map[string]any{"prompt": "Hello"}),
 )
 childSpan.SetOutput(map[string]any{"response": "Hi there!"})
-childSpan.SetTokenUsage(10, 20, "gpt-4o")
+childSpan.SetTokenUsage(10, 20, "gpt-5.6-terra")
 childSpan.End()
 parentSpan.End()
 ```
@@ -105,7 +105,7 @@ trace.End(nodeloom.StatusError, nodeloom.WithError("agent execution failed"))
 span.SetInput(map[string]any{"prompt": "Hello"})
 span.SetOutput(map[string]any{"response": "Hi"})
 span.SetStatus("error")
-span.SetTokenUsage(150, 200, "gpt-4o")
+span.SetTokenUsage(150, 200, "gpt-5.6-terra")
 span.SetMetadata(map[string]any{"model_version": "latest"})
 ```
 
