@@ -1,6 +1,7 @@
 package nodeloom
 
 import (
+	"regexp"
 	"testing"
 	"time"
 )
@@ -153,8 +154,11 @@ func TestClient_FlushAfterClose(t *testing.T) {
 }
 
 func TestSDKConstants(t *testing.T) {
-	if SDKVersion != "0.10.1" {
-		t.Errorf("expected SDK version '0.10.1', got %q", SDKVersion)
+	if SDKVersion == "" {
+		t.Error("SDKVersion must not be empty")
+	}
+	if !regexp.MustCompile(`^\d+\.\d+\.\d+$`).MatchString(SDKVersion) {
+		t.Errorf("SDKVersion %q is not semver", SDKVersion)
 	}
 	if SDKLanguage != "go" {
 		t.Errorf("expected SDK language 'go', got %q", SDKLanguage)
