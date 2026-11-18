@@ -1,2 +1,5 @@
 *.test
 coverage.out
+
+# Local security scan output
+snyk-findings.json
