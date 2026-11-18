@@ -13,7 +13,7 @@ Go SDK for instrumenting AI agents and sending telemetry to [NodeLoom](https://n
 
 ## Requirements
 
-- Go 1.21+
+- Go 1.25+
 
 ## Installation
 
